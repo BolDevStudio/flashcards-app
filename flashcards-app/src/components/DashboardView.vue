@@ -76,74 +76,48 @@
 </template>
 
 <script>
-import { Chart, registerables } from 'chart.js';
+import { getFlashcards, getCategories } from '@/services/api';
 
 export default {
   name: 'DashboardView',
   data() {
     return {
-      notifications: [
-        'Nowa fiszka została dodana!',
-        'Zaktualizowano statystyki.',
-      ],
-      totalFlashcards: 120,
-      categories: {
-        "Grammar": 45,
-        "Vocabulary": 55,
-        "Phrases": 20,
-      },
+      totalFlashcards: 0,
+      categories: {},
       recentActivity: {
-        lastAdded: 'Fiszka o temacie "Czasownik" dodana 2 dni temu',
-        lastReviewed: 'Fiszka o temacie "Słownictwo" przeglądana 1 dzień temu',
+        lastAdded: '',
+        lastReviewed: '',
       },
-      recentFlashcards: [
-        { question: 'What is Vue?', answer: 'A JavaScript framework', category: 'Frameworks' },
-        { question: 'What is Tailwind?', answer: 'A CSS framework', category: 'Design' },
-      ],
+      recentFlashcards: [],
+      notifications: [], // Dodaj tę linię
     };
   },
   mounted() {
-    Chart.register(...registerables);
-    this.renderChart();
+    this.fetchData();
   },
   methods: {
-    renderChart() {
-      const ctx = document.getElementById('categoryChart').getContext('2d');
-      if (ctx) {
-        new Chart(ctx, {
-          type: 'pie',
-          data: {
-            labels: Object.keys(this.categories),
-            datasets: [{
-              data: Object.values(this.categories),
-              backgroundColor: ['#4B9CD3', '#F5A623', '#7B8D82'],
-            }],
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-              legend: {
-                position: 'top',
-              },
-              tooltip: {
-                callbacks: {
-                  label: function(context) {
-                    let label = context.label || '';
-                    if (context.parsed.y !== null) {
-                      label += `: ${context.parsed.y}`;
-                    }
-                    return label;
-                  }
-                }
-              }
-            },
-          },
-        });
+    async fetchData() {
+      try {
+        const flashcardsResponse = await getFlashcards();
+        const categoriesResponse = await getCategories();
+
+        this.totalFlashcards = flashcardsResponse.data.length;
+        this.recentFlashcards = flashcardsResponse.data.slice(0, 5); // Ostatnie 5 fiszek
+        this.categories = categoriesResponse.data;
+
+        // Zaktualizuj recentActivity
+        if (this.recentFlashcards.length > 0) {
+          this.recentActivity.lastAdded = `Fiszka o temacie "${this.recentFlashcards[0].category}" dodana ${this.getDateDifference(this.recentFlashcards[0].dateAdded)} dni temu`;
+          this.recentActivity.lastReviewed = `Fiszka o temacie "${this.recentFlashcards[0].category}" przeglądana ${this.getDateDifference(this.recentFlashcards[0].dateReviewed)} dni temu`;
+        }
+      } catch (error) {
+        console.error('Error fetching data:', error);
       }
     },
-    addFlashcard() {
-      this.$router.push('/add-flashcard');
+    getDateDifference(date) {
+      const now = new Date();
+      const diff = Math.floor((now - new Date(date)) / (1000 * 60 * 60 * 24));
+      return diff;
     },
   },
 };
